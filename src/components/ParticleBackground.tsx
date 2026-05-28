@@ -30,30 +30,56 @@ export default function ParticleBackground() {
       vy: number;
       size: number;
       color: string;
+      isNebula: boolean;
 
       constructor() {
         this.x = Math.random() * canvas!.width;
         this.y = Math.random() * canvas!.height;
-        this.vx = (Math.random() - 0.5) * 0.4;
-        this.vy = (Math.random() - 0.5) * 0.4;
-        this.size = Math.random() * 2 + 1;
-        
-        // Random neon color tones
-        const colors = [
-          'rgba(6, 182, 212, 0.4)',  // Cyan
-          'rgba(16, 185, 129, 0.4)',  // Green
-          'rgba(139, 92, 246, 0.4)',  // Purple
-          'rgba(249, 115, 22, 0.3)',  // Orange
-        ];
-        this.color = colors[Math.floor(Math.random() * colors.length)];
+        this.isNebula = Math.random() < 0.15; // 15% are larger glowing space bodies
+
+        if (this.isNebula) {
+          // Large slow drifting stellar nebula stars
+          this.size = Math.random() * 4 + 3;
+          this.vx = (Math.random() - 0.5) * 0.08;
+          this.vy = (Math.random() - 0.5) * 0.08;
+          
+          const nebulaColors = [
+            'rgba(168, 85, 247, 0.22)',  // Violet Glow
+            'rgba(6, 182, 212, 0.22)',   // Cyan Glow
+            'rgba(245, 158, 11, 0.15)',   // Warm Gold Glow
+          ];
+          this.color = nebulaColors[Math.floor(Math.random() * nebulaColors.length)];
+        } else {
+          // Standard sharp connection nodes
+          this.size = Math.random() * 1.5 + 0.6;
+          this.vx = (Math.random() - 0.5) * 0.35;
+          this.vy = (Math.random() - 0.5) * 0.35;
+          
+          const nodeColors = [
+            'rgba(6, 182, 212, 0.45)',   // Cyan
+            'rgba(16, 185, 129, 0.45)',   // Green
+            'rgba(139, 92, 246, 0.45)',   // Purple
+          ];
+          this.color = nodeColors[Math.floor(Math.random() * nodeColors.length)];
+        }
       }
 
       draw() {
         if (!ctx) return;
         ctx.beginPath();
         ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-        ctx.fillStyle = this.color;
-        ctx.fill();
+        
+        if (this.isNebula) {
+          // Glow effect for large nebulae stars
+          ctx.shadowBlur = this.size * 1.8;
+          ctx.shadowColor = this.color;
+          ctx.fillStyle = this.color;
+          ctx.fill();
+          ctx.shadowBlur = 0; // reset instantly to maintain high drawing FPS
+        } else {
+          ctx.fillStyle = this.color;
+          ctx.fill();
+        }
       }
 
       update() {
@@ -65,17 +91,16 @@ export default function ParticleBackground() {
         this.x += this.vx;
         this.y += this.vy;
 
-        // Mouse interaction
-        if (mouse.x !== null && mouse.y !== null) {
+        // Mouse interaction (only affect standard nodes, let nebulae float smoothly)
+        if (!this.isNebula && mouse.x !== null && mouse.y !== null) {
           const dx = mouse.x - this.x;
           const dy = mouse.y - this.y;
           const distance = Math.sqrt(dx * dx + dy * dy);
           
           if (distance < mouse.radius) {
             const force = (mouse.radius - distance) / mouse.radius;
-            // Smoothly push away from mouse
-            this.x -= (dx / distance) * force * 1.5;
-            this.y -= (dy / distance) * force * 1.5;
+            this.x -= (dx / distance) * force * 1.2;
+            this.y -= (dy / distance) * force * 1.2;
           }
         }
       }
@@ -83,8 +108,7 @@ export default function ParticleBackground() {
 
     const initParticles = () => {
       particles = [];
-      // Adjust particle count for mobile screens to preserve high performance
-      const particleDensity = window.innerWidth < 768 ? 40 : 110;
+      const particleDensity = window.innerWidth < 768 ? 35 : 95;
       for (let i = 0; i < particleDensity; i++) {
         particles.push(new Particle());
       }
@@ -92,22 +116,26 @@ export default function ParticleBackground() {
 
     const drawConnections = () => {
       if (!ctx) return;
-      const maxDistance = 140;
+      const maxDistance = 130;
 
       for (let i = 0; i < particles.length; i++) {
+        // Skip link-drawing for glowing nebulae to keep connections thin and neat
+        if (particles[i].isNebula) continue;
+
         for (let j = i + 1; j < particles.length; j++) {
+          if (particles[j].isNebula) continue;
+
           const dx = particles[i].x - particles[j].x;
           const dy = particles[i].y - particles[j].y;
           const distance = Math.sqrt(dx * dx + dy * dy);
 
           if (distance < maxDistance) {
-            // Gradient opacity based on distance
-            const opacity = (1 - distance / maxDistance) * 0.15;
+            const opacity = (1 - distance / maxDistance) * 0.16;
             ctx.beginPath();
             ctx.moveTo(particles[i].x, particles[i].y);
             ctx.lineTo(particles[j].x, particles[j].y);
             ctx.strokeStyle = `rgba(16, 185, 129, ${opacity})`;
-            ctx.lineWidth = 0.8;
+            ctx.lineWidth = 0.7;
             ctx.stroke();
           }
         }
@@ -117,13 +145,14 @@ export default function ParticleBackground() {
     const animate = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       
-      // Draw a subtle background radial gradient that gives space/cosmic feel
+      // Gorgeous three-stop radial gradient simulating a deep space void
       const grad = ctx.createRadialGradient(
         canvas.width / 2, canvas.height / 2, 10,
         canvas.width / 2, canvas.height / 2, Math.max(canvas.width, canvas.height)
       );
-      grad.addColorStop(0, '#0a0d1e');
-      grad.addColorStop(1, '#030712');
+      grad.addColorStop(0, '#0c0d21');   // Deep Space Cosmic Indigo
+      grad.addColorStop(0.5, '#070614'); // Mysterious Stellar Violet/Navy
+      grad.addColorStop(1, '#020206');   // Absolute Space Void Black
       ctx.fillStyle = grad;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 

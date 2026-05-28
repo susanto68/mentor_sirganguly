@@ -83,10 +83,8 @@ export default function HomePage() {
               transition={{ duration: 0.6 }}
               className="flex items-center gap-3.5 self-start glass-panel px-4 py-2.5 rounded-full border-gray-800 shadow-lg pointer-events-none"
             >
-              <div className="relative w-10 h-10 rounded-full overflow-hidden border-2 border-emerald-400/80 shadow-[0_0_10px_rgba(16,185,129,0.3)] bg-gray-950 flex items-center justify-center">
-                {/* Visual stylized AI profile avatar since we don't have local image initially */}
-                <div className="absolute inset-0 bg-gradient-to-tr from-emerald-500 to-cyan-500 opacity-20" />
-                <span className="text-sm font-black text-emerald-300 tracking-wider">SG</span>
+              <div className="relative w-10 h-10 rounded-full overflow-hidden border-2 border-emerald-400/80 shadow-[0_0_10px_rgba(16,185,129,0.3)] bg-gray-950">
+                <img src="/sirganguly.png" alt="Sir Ganguly" className="w-full h-full object-cover" />
               </div>
               <div>
                 <h4 className="text-white font-extrabold text-sm tracking-wide">Sir Ganguly</h4>
