@@ -194,6 +194,34 @@ function CareerTreeContent({ onBack }: CareerTreeProps) {
       const clickedCareerNode = node.data.node as CareerNode;
       const hasChildren = CHILD_NODES.some((c) => c.parent_id === clickedCareerNode.id);
 
+      if (clickedCareerNode.id === 'school-students') {
+        // Expand the full stream path: school-students -> school-11-12 -> school-science -> pcm-careers
+        const autoExpandPath = ['school-students', 'school-11-12', 'school-science', 'pcm-careers'];
+        setExpandedNodes(autoExpandPath);
+        buildTreeLayout(autoExpandPath);
+
+        // Center on the 'school-students' root node first
+        setCenter(node.position.x + 100, node.position.y, { zoom: 1.1, duration: 600 });
+
+        // Let the branches grow and then trigger the slow scenic cinematic drag/pan over to the leaf node 'ai-ml-engineer'!
+        setTimeout(() => {
+          // X = 1170 is the coordinate of Column 5 (leaf nodes like 'ai-ml-engineer')
+          // Y = -435 is the exact computed Y height of the 'ai-ml-engineer' node
+          // Pan very slowly (duration: 3500ms) to create a premium cinematic galactic glide
+          setCenter(1170, -435, { zoom: 1.25, duration: 3500 });
+
+          // After the slow panning transition completes, automatically reveal the details drawer for 'ai-ml-engineer'
+          setTimeout(() => {
+            const aiEngineerData = CHILD_NODES.find(c => c.id === 'ai-ml-engineer');
+            if (aiEngineerData) {
+              setSelectedNodeData(aiEngineerData);
+            }
+          }, 3600);
+        }, 800);
+
+        return;
+      }
+
       // Perform a smooth GSAP-like camera pan and zoom into clicked node
       setCenter(node.position.x + 100, node.position.y, { zoom: 1.1, duration: 800 });
 

@@ -16,6 +16,7 @@ export default function NodeDrawer({ node, onClose }: NodeDrawerProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const animationRef = useRef<number | null>(null);
   const audioIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
 
   // Canvas waveform visualizer animation
   useEffect(() => {
@@ -98,37 +99,78 @@ export default function NodeDrawer({ node, onClose }: NodeDrawerProps) {
     };
   }, [isPlaying, node]);
 
-  // Handle audio speech synthesis play/pause
+  // Handle audio play/pause (supporting both direct MP3 stream and natural TTS fallback)
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    if (isPlaying) {
-      // 1. Cancel any active speech first to prevent overlapping voice tracks
+    // Cleanup previous playing processes
+    const cleanupAudio = () => {
+      if (audioPlayerRef.current) {
+        audioPlayerRef.current.pause();
+        audioPlayerRef.current = null;
+      }
       window.speechSynthesis.cancel();
+      if (audioIntervalRef.current) clearInterval(audioIntervalRef.current);
+    };
 
-      // 2. Dynamically compile a comprehensive spoken summary of the entire page content
-      const titleText = node ? `${node.title}, in category ${node.category}. ` : '';
-      const descText = node?.description ? `${node.description} ` : '';
-      const scopeText = node?.future_scope ? `Regarding its future outlook, ${node.future_scope}. ` : '';
-      const salaryText = node?.salary_range ? `The estimated standard salary range is ${node.salary_range}. ` : '';
-      const skillsText = node?.skills_required && node.skills_required.length > 0 
+    if (isPlaying) {
+      cleanupAudio();
+
+      // Play professionally recorded/generated MP3 from Supabase Storage if audio_url exists
+      if (node?.audio_url) {
+        const audio = new Audio(node.audio_url);
+        audioPlayerRef.current = audio;
+
+        audio.addEventListener('timeupdate', () => {
+          if (audio.duration) {
+            setAudioProgress((audio.currentTime / audio.duration) * 100);
+          }
+        });
+
+        audio.addEventListener('ended', () => {
+          setIsPlaying(false);
+          setAudioProgress(0);
+        });
+
+        audio.play().catch((err) => {
+          console.warn('Failed to stream audio file from Supabase, falling back to natural speech synthesizer:', err);
+          playTTS();
+        });
+      } else {
+        playTTS();
+      }
+    } else {
+      if (audioPlayerRef.current) {
+        audioPlayerRef.current.pause();
+      }
+      window.speechSynthesis.cancel();
+      if (audioIntervalRef.current) clearInterval(audioIntervalRef.current);
+    }
+
+    function playTTS() {
+      if (!node) return;
+      
+      const titleText = `${node.title}, in category ${node.category}. `;
+      const descText = node.description ? `${node.description} ` : '';
+      const scopeText = node.future_scope ? `Regarding its future outlook, ${node.future_scope}. ` : '';
+      const salaryText = node.salary_range ? `The estimated standard salary range is ${node.salary_range}. ` : '';
+      const skillsText = node.skills_required && node.skills_required.length > 0 
         ? `Core skills you need to master are: ${node.skills_required.join(', ')}. ` 
         : '';
-      const examsText = node?.exam_list && node.exam_list.length > 0 
+      const examsText = node.exam_list && node.exam_list.length > 0 
         ? `Important entrance examinations include: ${node.exam_list.join(', ')}. ` 
         : '';
-      const collegesText = node?.college_list && node.college_list.length > 0 
+      const collegesText = node.college_list && node.college_list.length > 0 
         ? `Top recommended Indian colleges are: ${node.college_list.join(', ')}. ` 
         : '';
-      const roadmapText = node?.roadmap_steps && node.roadmap_steps.length > 0 
+      const roadmapText = node.roadmap_steps && node.roadmap_steps.length > 0 
         ? `Here is your step by step action roadmap: ${node.roadmap_steps.map((step, i) => `Step ${i + 1}, ${step}`).join('. ')}. ` 
         : '';
-      const guidanceText = node?.motivation_guidance ? `Sir Ganguly's motivational guidance: ${node.motivation_guidance}` : '';
+      const guidanceText = node.motivation_guidance ? `Sir Ganguly's motivational guidance: ${node.motivation_guidance}` : '';
 
       const narrationText = `${titleText}${descText}${scopeText}${salaryText}${skillsText}${examsText}${collegesText}${roadmapText}${guidanceText}`;
       const utterance = new SpeechSynthesisUtterance(narrationText);
 
-      // 3. Find suitable Deep Male Natural Voice from browser's speech engines
       const voices = window.speechSynthesis.getVoices();
       let selectedVoice = voices.find(v => 
         v.name.toLowerCase().includes('google uk english male') ||
@@ -145,11 +187,10 @@ export default function NodeDrawer({ node, onClose }: NodeDrawerProps) {
         utterance.voice = selectedVoice;
       }
 
-      // 4. Pitch & Rate tuning for Deep, Calm, Wise Male Voice
-      utterance.pitch = 0.82; // Slightly lowered pitch for deep masculine resonance
-      utterance.rate = 0.90;  // Deliberate, wise, natural pacing (approx 120-130 WPM)
+      // Faster, more natural, authentic pacing parameters
+      utterance.pitch = 0.95; // Crisp, warm natural voice
+      utterance.rate = 1.05;  // Flowing human speed (approx 150 words per minute)
 
-      // 5. Completion reset handlers
       utterance.onend = () => {
         setIsPlaying(false);
         setAudioProgress(0);
@@ -159,34 +200,23 @@ export default function NodeDrawer({ node, onClose }: NodeDrawerProps) {
         setIsPlaying(false);
       };
 
-      // 6. Speak out loud!
       window.speechSynthesis.speak(utterance);
 
-      // 7. Track visual progress bar dynamically using estimated text duration
       const wordsCount = narrationText.split(' ').length;
-      const estimatedDurationMs = (wordsCount / 130) * 60 * 1000;
+      const estimatedDurationMs = (wordsCount / 150) * 60 * 1000;
       const updateIntervalMs = 150;
       const progressIncrement = (100 / (estimatedDurationMs / updateIntervalMs));
 
       audioIntervalRef.current = setInterval(() => {
         setAudioProgress((prev) => {
-          if (prev >= 99) {
-            return 99; // Hold at 99% until voice onend fires for absolute precision
-          }
+          if (prev >= 99) return 99;
           return prev + progressIncrement;
         });
       }, updateIntervalMs);
-
-    } else {
-      // Stop speech immediately on pause
-      window.speechSynthesis.cancel();
-      if (audioIntervalRef.current) clearInterval(audioIntervalRef.current);
     }
 
     return () => {
-      // Stop speech on unmount/close
-      window.speechSynthesis.cancel();
-      if (audioIntervalRef.current) clearInterval(audioIntervalRef.current);
+      cleanupAudio();
     };
   }, [isPlaying, node]);
 
