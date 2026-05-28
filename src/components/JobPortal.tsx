@@ -69,15 +69,32 @@ export default function JobPortal({ onBack }: JobPortalProps) {
 
       {/* Header Panel */}
       <div className="max-w-6xl mx-auto px-4 pt-8">
-        <motion.button
-          onClick={onBack}
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          className="flex items-center gap-2 px-4 py-2 rounded-full glass-panel hover:border-cyan-500/30 transition-all text-sm text-cyan-400 group cursor-pointer mb-8"
-        >
-          <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
-          Back to GrowthUniverse
-        </motion.button>
+        <div className="flex items-center justify-between gap-4 mb-8">
+          <motion.button
+            onClick={onBack}
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="flex items-center gap-2 px-4 py-2 rounded-full glass-panel hover:border-cyan-500/30 transition-all text-sm text-cyan-400 group cursor-pointer"
+          >
+            <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
+            Back to GrowthUniverse
+          </motion.button>
+
+          {/* Profile Photo at top-right of JobPortal header */}
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="flex items-center gap-3 glass-panel px-4 py-2 rounded-full border-gray-800 shadow-lg pointer-events-none"
+          >
+            <div className="relative w-8 h-8 rounded-full overflow-hidden border border-cyan-400 shadow-[0_0_8px_rgba(6,182,212,0.3)] bg-gray-950">
+              <img src="/sirganguly.png" alt="Sir Ganguly" className="w-full h-full object-cover" />
+            </div>
+            <div>
+              <h4 className="text-white font-extrabold text-xs tracking-wide">Sir Ganguly</h4>
+              <p className="text-[8px] text-gray-500 font-bold uppercase tracking-wider">Visionary & Mentor</p>
+            </div>
+          </motion.div>
+        </div>
 
         <motion.div
           initial={{ opacity: 0, y: 20 }}

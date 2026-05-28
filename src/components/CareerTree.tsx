@@ -235,6 +235,17 @@ function CareerTreeContent({ onBack }: CareerTreeProps) {
       {/* Glass header panel */}
       <div className="w-full glass-panel border-b border-gray-800/60 py-4 px-6 z-10 flex items-center justify-between">
         <div className="flex items-center gap-4">
+          {/* Profile Photo at top-left of CareerTree header */}
+          <div className="flex items-center gap-2.5 border-r border-gray-800/80 pr-4 mr-1">
+            <div className="relative w-8 h-8 rounded-full overflow-hidden border border-emerald-400 shadow-[0_0_8px_rgba(16,185,129,0.3)] bg-gray-950">
+              <img src="/sirganguly.png" alt="Sir Ganguly" className="w-full h-full object-cover" />
+            </div>
+            <div className="hidden xs:block">
+              <h4 className="text-white font-extrabold text-xs tracking-wide">Sir Ganguly</h4>
+              <p className="text-[8px] text-gray-500 font-bold uppercase tracking-wider">Visionary</p>
+            </div>
+          </div>
+
           <button
             onClick={onBack}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-full glass-panel hover:border-emerald-500/30 text-xs text-emerald-400 group cursor-pointer transition-all"
