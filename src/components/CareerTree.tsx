@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   ReactFlow,
   MiniMap,
@@ -15,7 +15,7 @@ import {
   Handle
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, ZoomIn, ZoomOut, Maximize2, Compass } from 'lucide-react';
 import { ROOT_NODES, CHILD_NODES, ALL_NODES, CareerNode } from '../lib/data/careerData';
 import NodeDrawer from './NodeDrawer';
@@ -91,6 +91,9 @@ function CareerTreeContent({ onBack }: CareerTreeProps) {
   const [expandedNodes, setExpandedNodes] = useState<string[]>([]);
   const [selectedNodeData, setSelectedNodeData] = useState<CareerNode | null>(null);
   const { setCenter, fitView, zoomTo } = useReactFlow();
+
+  const [introPlaying, setIntroPlaying] = useState(false);
+  const introUtteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
 
   // Lay out the nodes programmatically
   const buildTreeLayout = useCallback((activeExpandedIds: string[]) => {
@@ -188,44 +191,77 @@ function CareerTreeContent({ onBack }: CareerTreeProps) {
     }, 100);
   }, [buildTreeLayout, fitView]);
 
+  // Play introductory navigation speech on first mount of the Tree of Life
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const playIntroSpeech = () => {
+      window.speechSynthesis.cancel();
+
+      const introText = "Hello! I am Sir Ganguly, your career mentor. Welcome to GrowthVerse, your interactive Tree of Life navigation system. To begin your journey, click on any of the starting categories on the left—such as School Students, College Students, or Parents. The screen will glide slowly to reveal the next branches. Expand nodes step-by-step until you reach your target career leaf node, where you can listen to my detailed audio guides, explore entrance exams, recommended colleges, and future scope. Let us navigate your future together!";
+      
+      const utterance = new SpeechSynthesisUtterance(introText);
+      introUtteranceRef.current = utterance;
+
+      const voices = window.speechSynthesis.getVoices();
+      let selectedVoice = voices.find(v => 
+        v.name.toLowerCase().includes('google uk english male') ||
+        v.name.toLowerCase().includes('microsoft david') ||
+        v.name.toLowerCase().includes('male') ||
+        v.name.toLowerCase().includes('google us english')
+      );
+      
+      if (!selectedVoice && voices.length > 0) {
+        selectedVoice = voices.find(v => v.lang.startsWith('en')) || voices[0];
+      }
+
+      if (selectedVoice) utterance.voice = selectedVoice;
+      utterance.pitch = 0.95; 
+      utterance.rate = 1.02;  // Deliberate and welcoming pacing
+
+      utterance.onstart = () => {
+        setIntroPlaying(true);
+      };
+
+      utterance.onend = () => {
+        setIntroPlaying(false);
+        sessionStorage.setItem('growthverse_intro_played', 'true');
+      };
+
+      utterance.onerror = () => {
+        setIntroPlaying(false);
+      };
+
+      window.speechSynthesis.speak(utterance);
+    };
+
+    // Trigger only if not played in current session
+    const hasPlayed = sessionStorage.getItem('growthverse_intro_played');
+    if (!hasPlayed) {
+      const timer = setTimeout(() => {
+        playIntroSpeech();
+      }, 1000);
+      return () => {
+        clearTimeout(timer);
+        window.speechSynthesis.cancel();
+      };
+    }
+  }, []);
+
+  const skipIntro = () => {
+    window.speechSynthesis.cancel();
+    setIntroPlaying(false);
+    sessionStorage.setItem('growthverse_intro_played', 'true');
+  };
+
   // Handle clicking a node card
   const onNodeClick = useCallback(
     (_event: React.MouseEvent, node: Node) => {
       const clickedCareerNode = node.data.node as CareerNode;
       const hasChildren = CHILD_NODES.some((c) => c.parent_id === clickedCareerNode.id);
 
-      if (clickedCareerNode.id === 'school-students') {
-        // Expand the full stream path: school-students -> school-11-12 -> school-science -> pcm-careers
-        const autoExpandPath = ['school-students', 'school-11-12', 'school-science', 'pcm-careers'];
-        setExpandedNodes(autoExpandPath);
-        buildTreeLayout(autoExpandPath);
-
-        // Center on the 'school-students' root node first
-        setCenter(node.position.x + 100, node.position.y, { zoom: 1.1, duration: 600 });
-
-        // Let the branches grow and then trigger the slow scenic cinematic drag/pan over to the leaf node 'ai-ml-engineer'!
-        setTimeout(() => {
-          // X = 1170 is the coordinate of Column 5 (leaf nodes like 'ai-ml-engineer')
-          // Y = -435 is the exact computed Y height of the 'ai-ml-engineer' node
-          // Pan very slowly (duration: 3500ms) to create a premium cinematic galactic glide
-          setCenter(1170, -435, { zoom: 1.25, duration: 3500 });
-
-          // After the slow panning transition completes, automatically reveal the details drawer for 'ai-ml-engineer'
-          setTimeout(() => {
-            const aiEngineerData = CHILD_NODES.find(c => c.id === 'ai-ml-engineer');
-            if (aiEngineerData) {
-              setSelectedNodeData(aiEngineerData);
-            }
-          }, 3600);
-        }, 800);
-
-        return;
-      }
-
-      // Perform a smooth GSAP-like camera pan and zoom into clicked node
-      setCenter(node.position.x + 100, node.position.y, { zoom: 1.1, duration: 800 });
-
       if (hasChildren) {
+        // Toggle expansion of direct children step-by-step
         setExpandedNodes((prev) => {
           let updated: string[];
           if (prev.includes(clickedCareerNode.id)) {
@@ -239,16 +275,22 @@ function CareerTreeContent({ onBack }: CareerTreeProps) {
               return newList;
             };
             updated = collapseDescendants(clickedCareerNode.id, prev);
+            
+            // Pan smoothly back to the clicked node
+            setCenter(node.position.x + 100, node.position.y, { zoom: 1.1, duration: 1200 });
           } else {
-            // Keep siblings of SAME level but collapse other non-adjacent structures
-            // Or simple add to list for seamless expanding tree
+            // Expand direct next children branch and glide camera slowly to focus on the newly sprouted level
             updated = [...prev, clickedCareerNode.id];
+            
+            // Glide slowly to the right (x + 220) to reveal the new children centered beautifully in view
+            setCenter(node.position.x + 220, node.position.y, { zoom: 1.1, duration: 1800 });
           }
           buildTreeLayout(updated);
           return updated;
         });
       } else {
         // Leaf Node clicked: Open statistical details slide-out drawer
+        setCenter(node.position.x + 100, node.position.y, { zoom: 1.15, duration: 1200 });
         setSelectedNodeData(clickedCareerNode);
       }
     },
@@ -371,6 +413,33 @@ function CareerTreeContent({ onBack }: CareerTreeProps) {
           />
         </ReactFlow>
       </div>
+
+      {/* Floating Welcome Audio Indicator */}
+      <AnimatePresence>
+        {introPlaying && (
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 30 }}
+            className="absolute bottom-24 left-1/2 -translate-x-1/2 z-30 glass-panel border-emerald-500/30 px-5 py-3.5 rounded-2xl flex items-center gap-3.5 shadow-[0_0_20px_rgba(16,185,129,0.2)] bg-black/95 text-xs"
+          >
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            </span>
+            <div className="text-left">
+              <h5 className="text-[11px] font-extrabold text-white uppercase tracking-wider">Sir Ganguly's Guidance</h5>
+              <p className="text-[9px] text-gray-400">Playing introductory navigation audio guide...</p>
+            </div>
+            <button
+              onClick={skipIntro}
+              className="ml-2 px-3 py-1 rounded-lg border border-gray-800 hover:border-red-500/30 text-[9px] text-gray-400 hover:text-red-400 transition-colors cursor-pointer uppercase font-bold"
+            >
+              Skip Intro
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Info Slide Drawer Panels */}
       <AnimatePresence>
